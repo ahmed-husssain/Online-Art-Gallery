@@ -8,6 +8,7 @@ using QRCoder;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using Microsoft.AspNetCore.Identity;
 
 namespace Project.Controllers
 {
@@ -15,6 +16,7 @@ namespace Project.Controllers
     {
         private readonly MyContext db;
         private readonly IEmailService emailService;
+        private readonly IPasswordHasher<User> _passwordHasher = new PasswordHasher<User>();
 
         public HomeController(MyContext context, IEmailService email)
         {
@@ -182,7 +184,8 @@ namespace Project.Controllers
                     return View(model);
                 }
 
-                if (user.Password != model.CurrentPassword)
+                var verifyResult = _passwordHasher.VerifyHashedPassword(user, user.Password, model.CurrentPassword);
+                if (verifyResult == PasswordVerificationResult.Failed)
                 {
                     ModelState.AddModelError("CurrentPassword", "Current password is incorrect.");
                     return View(model);
@@ -214,7 +217,7 @@ namespace Project.Controllers
 
             bool isFirstTimePassword = string.IsNullOrEmpty(user.Password);
 
-            user.Password = model.NewPassword;
+            user.Password = _passwordHasher.HashPassword(user, model.NewPassword);
             user.OTP = null;
             user.OTPExpiry = null;
 

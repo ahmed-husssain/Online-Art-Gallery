@@ -169,7 +169,12 @@ namespace Project.Controllers
         public IActionResult Index() => RedirectToAction("Login");
         public IActionResult Login() => View();
         public IActionResult Register() { ViewBag.ShowRegister = true; return View("Login"); }
-        public IActionResult Logout() { HttpContext.Session.Clear(); return RedirectToAction("Login"); }
+        public async Task<IActionResult> Logout()
+        {
+            HttpContext.Session.Clear();
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction("Login");
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
