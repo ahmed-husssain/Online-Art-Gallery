@@ -154,7 +154,7 @@ namespace Project.Controllers
         }
 
         [HttpPost]
-        public IActionResult ProcessCheckout(CartViewModel model)
+        public async Task<IActionResult> ProcessCheckout(CartViewModel model)
         {
             var cart = GetCart();
             if (cart.Count == 0) return RedirectToAction("Index");
@@ -182,8 +182,8 @@ namespace Project.Controllers
 
             foreach (var item in cart)
             {
-                var platformFee = item.Price * 0.10m;
-                var artistEarnings = item.Price - platformFee;
+                var platformFee = (item.Price * 0.10m) * item.Quantity;
+                var artistEarnings = (item.Price - (item.Price * 0.10m)) * item.Quantity;
 
                 order.OrderItems.Add(new OrderItem
                 {
@@ -218,29 +218,40 @@ namespace Project.Controllers
                         <h2 style='margin-bottom: 20px;'>Thank you for your order, {model.FullName}!</h2>
                         <p style='color: #94a3b8; font-size: 16px; margin-bottom: 30px;'>Your selection of masterpieces is ready for shipment. Please confirm your order to finalize the delivery process.</p>
                         <a href='{confirmLink}' style='display: inline-block; background: #3b82f6; color: white; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);'>Confirm Order</a>
-                        <p style='margin-top: 40px; font-size: 12px; color: #475569;'>© 2025 Art Gallery. Modern Art for Modern Collectors.</p>
+                        <p style='margin-top: 40px; font-size: 12px; color: #475569;'>© {DateTime.Now.Year} Art Gallery. Modern Art for Modern Collectors.</p>
                     </div>";
 
-                _emailService.SendEmailAsync(userEmail, subject, body).GetAwaiter().GetResult();
-                TempData["Success"] = "Order initiated! Please check your email to confirm your purchase.";
+                await _emailService.SendEmailAsync(userEmail, subject, body);
+                TempData["Success"] = "Order placed! Please check your email to confirm your purchase.";
             }
 
             HttpContext.Session.Remove(CartSessionKey);
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("OrderConfirmed", new { id = order.Id });
         }
 
         public IActionResult OrderConfirmed(int id)
         {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var role = HttpContext.Session.GetString("Role");
+            if (userId == null) return RedirectToAction("Login", "Auth");
+
             var order = _context.Orders.FirstOrDefault(o => o.Id == id);
             if (order == null) return RedirectToAction("Index", "Home");
+            if (order.UserId != userId && role != "Admin") return RedirectToAction("Index", "Home");
+
             return View(order);
         }
 
         [HttpPost]
         public IActionResult ConfirmOrder(int id)
         {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            var role = HttpContext.Session.GetString("Role");
+            if (userId == null) return RedirectToAction("Login", "Auth");
+
             var order = _context.Orders.FirstOrDefault(o => o.Id == id);
             if (order == null) return RedirectToAction("Index", "Home");
+            if (order.UserId != userId && role != "Admin") return RedirectToAction("Index", "Home");
 
             if (order.Status == "Pending")
             {

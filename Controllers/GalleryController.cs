@@ -30,8 +30,9 @@ namespace Project.Controllers
             var purchased = _context.OrderItems
                 .Include(oi => oi.Order)
                 .Include(oi => oi.Product)
-                .Where(oi => oi.Order.UserId == userId && oi.Order.Status == "Confirmed")
+                .Where(oi => oi.Order.UserId == userId && (oi.Order.Status == "Confirmed" || oi.Order.Status == "Pending"))
                 .Select(oi => oi.Product)
+                .Where(p => p != null)
                 .Distinct()
                 .ToList();
 
