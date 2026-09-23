@@ -43,7 +43,7 @@ namespace Project.Controllers
         public IActionResult Upload()
         {
             var role = HttpContext.Session.GetString("Role");
-            if (role != "User" && role != "Admin")
+            if (role != "User" && role != "Admin" && role != "Artist")
                 return RedirectToAction("Index", "Home");
             return View();
         }
@@ -54,7 +54,7 @@ namespace Project.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             var role = HttpContext.Session.GetString("Role");
             
-            if (userId == null || (role != "User" && role != "Admin"))
+            if (userId == null || (role != "User" && role != "Admin" && role != "Artist"))
                 return RedirectToAction("Index", "Home");
 
             if (ModelState.IsValid)
@@ -88,7 +88,7 @@ namespace Project.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             var role = HttpContext.Session.GetString("Role");
             
-            if (userId == null || (role != "User" && role != "Admin"))
+            if (userId == null || (role != "User" && role != "Admin" && role != "Artist"))
                 return RedirectToAction("Index", "Home");
 
             return View();
