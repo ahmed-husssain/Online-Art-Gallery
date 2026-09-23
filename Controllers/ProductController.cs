@@ -102,6 +102,18 @@ namespace Project.Controllers
 
             if (rating < 1 || rating > 5) return RedirectToAction("Details", new { id = productId });
 
+            var existingReview = await _context.Reviews.FirstOrDefaultAsync(r => r.ProductId == productId && r.UserId == userId.Value);
+            if (existingReview != null)
+            {
+                existingReview.Rating = rating;
+                existingReview.Comment = comment;
+                existingReview.CreatedAt = DateTime.Now;
+                _context.Reviews.Update(existingReview);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Your review has been updated!";
+                return RedirectToAction("Details", new { id = productId });
+            }
+
             var review = new Review
             {
                 ProductId = productId,

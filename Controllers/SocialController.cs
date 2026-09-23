@@ -23,7 +23,7 @@ namespace Project.Controllers
 
         public IActionResult Community()
         {
-            if (string.IsNullOrEmpty(HttpContext.Session.GetString("UserId")))
+            if (HttpContext.Session.GetInt32("UserId") == null)
             {
                 return RedirectToAction("Login", "Auth");
             }
@@ -45,7 +45,7 @@ namespace Project.Controllers
 
         public IActionResult Feed()
         {
-            if (string.IsNullOrEmpty(HttpContext.Session.GetString("UserId")))
+            if (HttpContext.Session.GetInt32("UserId") == null)
             {
                 return RedirectToAction("Login", "Auth");
             }

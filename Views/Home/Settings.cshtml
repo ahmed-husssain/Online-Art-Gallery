@@ -48,7 +48,7 @@
                                     else
                                     {
                                         <div id="avatarPlaceholder" class="w-full h-full bg-primary flex items-center justify-center text-6xl font-bold text-white">
-                                            @Model.Name[0].ToString().ToUpper()
+                                            @(!string.IsNullOrWhiteSpace(Model.Name) ? Model.Name[0].ToString().ToUpper() : "U")
                                         </div>
                                         <img id="avatarPreview" src="#" class="w-full h-full object-cover hidden transition-transform group-hover:scale-110" />
                                     }

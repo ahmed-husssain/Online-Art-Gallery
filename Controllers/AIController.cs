@@ -26,7 +26,7 @@ namespace Project.Controllers
 
         public IActionResult Index()
         {
-            if (string.IsNullOrEmpty(HttpContext.Session.GetString("UserId")))
+            if (HttpContext.Session.GetInt32("UserId") == null)
             {
                 return RedirectToAction("Login", "Auth");
             }

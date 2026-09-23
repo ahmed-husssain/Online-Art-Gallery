@@ -45,7 +45,13 @@ namespace Project.Controllers
             }
             else
             {
-                TempData["Success"] = "Item is already in your wishlist!";
+                TempData["Info"] = "Item is already in your wishlist!";
+            }
+
+            var referer = Request.Headers["Referer"].ToString();
+            if (!string.IsNullOrEmpty(referer) && Uri.IsWellFormedUriString(referer, UriKind.RelativeOrAbsolute))
+            {
+                return Redirect(referer);
             }
 
             return RedirectToAction("Index", "Product");
