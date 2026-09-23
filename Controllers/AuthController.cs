@@ -455,7 +455,7 @@ namespace Project.Controllers
             user.Age = Age;
             user.Sex = Sex;
             user.Interests = Interests;
-            user.Role = Role;
+            user.Role = (Role == "Artist") ? "Artist" : "User";
             user.IsOnboarded = true;
             _db.users.Update(user);
             await _db.SaveChangesAsync();

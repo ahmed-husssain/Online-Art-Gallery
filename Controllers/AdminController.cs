@@ -38,13 +38,17 @@ namespace Project.Controllers
                 await _context.SaveChangesAsync();
 
 
+                var safeName = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(feedback.FullName ?? "");
+                var safeSubject = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(feedback.Subject ?? "");
+                var safeReply = System.Text.Encodings.Web.HtmlEncoder.Default.Encode(reply ?? "").Replace("\n", "<br/>");
+
                 string subject = "Reply to your inquiry: " + feedback.Subject;
                 string body = $@"
                     <div style='font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;'>
-                        <h3>Hello {feedback.FullName},</h3>
-                        <p>Thank you for reaching out to us. Here is our response to your message regarding '<strong>{feedback.Subject}</strong>':</p>
+                        <h3>Hello {safeName},</h3>
+                        <p>Thank you for reaching out to us. Here is our response to your message regarding '<strong>{safeSubject}</strong>':</p>
                         <div style='background: #f4f4f4; padding: 15px; border-left: 4px solid #4CAF50; margin: 20px 0;'>
-                            {reply}
+                            {safeReply}
                         </div>
                         <p>Best Regards,<br/>Art Gallery Team</p>
                     </div>";
@@ -65,7 +69,7 @@ namespace Project.Controllers
             ViewBag.TotalUsers = _context.users.Count();
             ViewBag.TotalProducts = _context.products.Count();
             ViewBag.TotalOrders = _context.Orders.Count();
-            ViewBag.TotalRevenue = _context.Orders.Sum(o => o.TotalAmount);
+            ViewBag.TotalRevenue = _context.Orders.Sum(o => (decimal?)o.TotalAmount) ?? 0m;
             ViewBag.PendingApprovals = _context.products.Count(p => !p.IsApproved && p.ArtistId != null);
 
             // Fetch recent orders for dashboard
@@ -116,8 +120,13 @@ namespace Project.Controllers
         [HttpPost]
         public IActionResult AddUser(User user)
         {
+            if (HttpContext.Session.GetString("Role") != "Admin") return RedirectToAction("Index", "Home");
             if (ModelState.IsValid)
             {
+                if (!string.IsNullOrEmpty(user.Password))
+                {
+                    user.Password = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(user, user.Password);
+                }
                 user.IsOnboarded = true;
                 _context.users.Add(user);
                 _context.SaveChanges();
@@ -137,12 +146,16 @@ namespace Project.Controllers
         [HttpPost]
         public IActionResult EditUser(User user)
         {
+            if (HttpContext.Session.GetString("Role") != "Admin") return RedirectToAction("Index", "Home");
             var existing = _context.users.Find(user.UserId);
             if (existing != null)
             {
                 existing.Name = user.Name;
                 existing.Email = user.Email;
-                existing.Password = user.Password;
+                if (!string.IsNullOrEmpty(user.Password) && user.Password != existing.Password)
+                {
+                    existing.Password = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(existing, user.Password);
+                }
                 existing.Role = user.Role;
                 _context.SaveChanges();
                 TempData["Success"] = "User updated successfully!";
@@ -185,7 +198,7 @@ namespace Project.Controllers
             {
                 if (image != null && image.Length > 0)
                 {
-                    var fileName = Path.GetFileName(image.FileName);
+                    var fileName = Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);
                     var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images/products", fileName);
                     Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images/products"));
                     using (var stream = new FileStream(filePath, FileMode.Create))
@@ -203,7 +216,7 @@ namespace Project.Controllers
                 product.IsApproved = true;
                 _context.products.Add(product);
                 _context.SaveChanges();
-                TempData["Success"] = "Project created successfully!";
+                TempData["Success"] = "Artwork created successfully!";
                 return RedirectToAction("Products");
             }
             return View(product);
@@ -219,6 +232,7 @@ namespace Project.Controllers
         [HttpPost]
         public IActionResult EditProduct(Product product, IFormFile image)
         {
+            if (HttpContext.Session.GetString("Role") != "Admin") return RedirectToAction("Index", "Home");
             var existing = _context.products.Find(product.Id);
             if (existing != null)
             {
@@ -230,7 +244,7 @@ namespace Project.Controllers
                 
                 if (image != null && image.Length > 0)
                 {
-                    var fileName = Path.GetFileName(image.FileName);
+                    var fileName = Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);
                     var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images/products", fileName);
                     Directory.CreateDirectory(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/images/products"));
                     using (var stream = new FileStream(filePath, FileMode.Create))
@@ -241,7 +255,7 @@ namespace Project.Controllers
                 }
 
                 _context.SaveChanges();
-                TempData["Success"] = "Project updated successfully!";
+                TempData["Success"] = "Artwork updated successfully!";
                 return RedirectToAction("Products");
             }
             return View(product);
@@ -255,7 +269,7 @@ namespace Project.Controllers
             {
                 _context.products.Remove(product);
                 _context.SaveChanges();
-                TempData["Success"] = "Project deleted successfully!";
+                TempData["Success"] = "Artwork deleted successfully!";
             }
             return RedirectToAction("Products");
         }
