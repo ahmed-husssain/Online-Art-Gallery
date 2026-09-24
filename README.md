@@ -147,7 +147,6 @@ E-Project/
 ├── benchmark_live_api.ps1       # Comprehensive API benchmarking suite
 ├── run_clean_benchmark.ps1      # 10-run reproducibility latency test
 ├── test_cache_speed.ps1         # RAM in-memory lookup vs DB test
-├── art_gallery_carousel.html    # LinkedIn carousel HTML / PDF presentation
 └── Program.cs                   # Application entry point & service composition
 ```
 

@@ -117,6 +117,8 @@ node_modules/
 # Mac
 .DS_Store
 
-# Logs & Scratch
+# Logs, Carousel & Internal Notes
 wwwroot/errorlogs/
 scratch_measure_db.ps1
+art_gallery_carousel.html
+LEARNING_RESOURCES.md
