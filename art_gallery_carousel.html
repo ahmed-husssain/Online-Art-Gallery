@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building in Public — Online Art Gallery Backend Series</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #02040A;
+      --bg-surface: #0A0C14;
+      --bg-card: #111420;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-glow: rgba(99, 102, 241, 0.4);
+      --primary: #6366F1;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      --secondary: #A855F7;
+      --accent-rose: #F43F5E;
+      --accent-emerald: #10B981;
+      --accent-cyan: #38BDF8;
+      --text: #FFFFFF;
+      --text-muted: #94A3B8;
+      --text-dark: #64748B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #010206;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 0 100px;
+      gap: 50px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Print Controls */
+    .print-controls {
+      position: sticky;
+      top: 20px;
+      z-index: 100;
+      background: rgba(10, 12, 20, 0.94);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2);
+      padding: 14px 28px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .print-btn {
+      background: linear-gradient(135deg, #6366F1, #A855F7);
+      color: #FFFFFF;
+      border: none;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 9999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .print-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+    }
+
+    .print-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .print-hint strong {
+      color: #FFFFFF;
+    }
+
+    /* EXACT LINKEDIN CAROUSEL SLIDE (1080 x 1350 = 4:5 Aspect Ratio) */
+    .slide {
+      width: 1080px;
+      height: 1350px;
+      background: var(--bg);
+      background-image:
+        radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+        linear-gradient(180deg, #0A0C14 0%, #02040A 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95);
+      padding: 48px 56px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    /* Subtle dev grid */
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-size: 38px 38px;
+      background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      pointer-events: none;
+    }
+
+    /* Header Bar */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .dev-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 9999px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--primary);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    .slide-index {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--secondary);
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      padding: 6px 14px;
+      border-radius: 8px;
+    }
+
+    /* Main Body Area */
+    .slide-body {
+      position: relative;
+      z-index: 2;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8px 0;
+      gap: 16px;
+    }
+
+    .series-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #A5B4FC;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      padding: 6px 14px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    h1.slide-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      color: #FFFFFF;
+    }
+
+    h1.slide-title span.indigo {
+      background: linear-gradient(135deg, #818CF8, #6366F1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1.slide-title span.violet {
+      background: linear-gradient(135deg, #C084FC, #A855F7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1.slide-title span.rose {
+      color: var(--accent-rose);
+    }
+
+    h1.slide-title span.cyan {
+      color: var(--accent-cyan);
+    }
+
+    p.slide-sub {
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      max-width: 960px;
+    }
+
+    p.slide-sub strong {
+      color: var(--text);
+    }
+
+    /* SCREENSHOT SHOWCASE FRAME — 100% VISIBLE WITH ZERO CROPPING */
+    .mockup-frame {
+      background: var(--bg-surface);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(99, 102, 241, 0.15);
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .mockup-top {
+      background: #0D111D;
+      border-bottom: 1px solid var(--card-border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-red {
+      background: #EF4444;
+    }
+
+    .dot-yellow {
+      background: #F59E0B;
+    }
+
+    .dot-green {
+      background: #10B981;
+    }
+
+    .mockup-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-dark);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px 12px;
+      border-radius: 6px;
+      margin-left: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Fully uncropped image with natural aspect ratio */
+    .mockup-img {
+      width: 100%;
+      height: auto;
+      max-height: 460px;
+      object-fit: contain;
+      background: #02040A;
+      display: block;
+    }
+
+    /* Terminal Code Block */
+    .terminal-box {
+      background: #080B12;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .terminal-content {
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #CBD5E1;
+    }
+
+    .code-comment {
+      color: #64748B;
+    }
+
+    .code-indigo {
+      color: #818CF8;
+      font-weight: 600;
+    }
+
+    .code-cyan {
+      color: var(--accent-cyan);
+    }
+
+    .code-red {
+      color: #F87171;
+    }
+
+    .code-green {
+      color: #34D399;
+    }
+
+    /* Reality Check Cards */
+    .reality-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .reality-card {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .reality-card.working {
+      border-top: 3px solid var(--accent-emerald);
+    }
+
+    .reality-card.failing {
+      border-top: 3px solid var(--accent-rose);
+      background: linear-gradient(180deg, rgba(244, 63, 94, 0.04) 0%, rgba(17, 20, 32, 0.95) 100%);
+    }
+
+    .reality-card-header {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .reality-card.working .reality-card-header {
+      color: #34D399;
+    }
+
+    .reality-card.failing .reality-card-header {
+      color: #FB7185;
+    }
+
+    .reality-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    .reality-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .reality-list li strong {
+      color: var(--text);
+    }
+
+    /* ==========================================================================
+       VISUAL BENCHMARK COMPARISON COMPONENTS (DAY 0 vs. DAY 4)
+       ========================================================================== */
+    .benchmark-hero-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 18px;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+    }
+
+    .benchmark-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .benchmark-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+
+    .benchmark-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+
+    .benchmark-val {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .val-day0 {
+      color: #F43F5E;
+    }
+
+    .val-day4 {
+      color: #38BDF8;
+    }
+
+    /* Latency Bars with Visual Glow */
+    .bar-track {
+      width: 100%;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .bar-fill-day0 {
+      height: 100%;
+      width: 95%;
+      background: linear-gradient(90deg, #E11D48, #F43F5E);
+      border-radius: 6px;
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .bar-fill-day4 {
+      height: 100%;
+      width: 5.5%;
+      min-width: 65px;
+      background: linear-gradient(90deg, #0284C7, #38BDF8);
+      border-radius: 6px;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #02040A;
+    }
+
+    .benchmark-badges {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .badge-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 9999px;
+    }
+
+    .badge-day0 {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #FDA4AF;
+    }
+
+    .badge-day4 {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #7DD3FC;
+    }
+
+    /* 4-Stat Comparison Grid */
+    .stat-matrix {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: rgba(10, 12, 20, 0.85);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-metric-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-before-after {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .stat-before {
+      color: #F43F5E;
+      text-decoration: line-through;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .stat-after {
+      color: #38BDF8;
+    }
+
+    .stat-delta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #10B981;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    /* Roadmap Timeline */
+    .roadmap-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .roadmap-item {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .roadmap-item.active {
+      border-color: rgba(99, 102, 241, 0.5);
+      background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(17, 20, 32, 0.95) 100%);
+    }
+
+    .roadmap-step {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #A5B4FC;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      padding: 6px 12px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .roadmap-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-grow: 1;
+    }
+
+    .roadmap-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .roadmap-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .roadmap-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+    }
+
+    /* Vote Options Grid */
+    .vote-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .vote-card {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 24px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .vote-card.option-a {
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.06) 0%, rgba(17, 20, 32, 0.95) 100%);
+    }
+
+    .vote-card.option-b {
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.06) 0%, rgba(17, 20, 32, 0.95) 100%);
+    }
+
+    .vote-letter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .vote-card.option-a .vote-letter {
+      color: var(--primary);
+    }
+
+    .vote-card.option-b .vote-letter {
+      color: var(--secondary);
+    }
+
+    .vote-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .vote-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid var(--card-border);
+      padding-top: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-dark);
+    }
+
+    .footer-series {
+      color: var(--text-muted);
+    }
+
+    .footer-action {
+      color: #A5B4FC;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* PRINT SPECIFIC RULES FOR FLAWLESS PDF EXPORT */
+    @media print {
+      body {
+        background: #02040A !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .print-controls {
+        display: none !important;
+      }
+
+      .slide {
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 1080px !important;
+        height: 1350px !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        background: #02040A !important;
+      }
+
+      .slide:last-child {
+        page-break-after: auto !important;
+      }
+    }
+
+    @page {
+      size: 1080px 1350px;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- FLOATING PRINT TOOLBAR (HIDDEN IN PDF) -->
+  <div class="print-controls">
+    <button class="print-btn" onclick="window.print()">
+      🖨️ Export Clean Carousel PDF
+    </button>
+    <div class="print-hint">
+      Destination: <strong>Save as PDF</strong> &bull; Margins: <strong>None</strong> &bull; Background graphics:
+      <strong>Checked</strong>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 1: THE REALITY HOOK ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">01 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">⚡ BUILDING IN PUBLIC &bull; S01E01</div>
+      <h1 class="slide-title">
+        I built an <span class="indigo">Art & Live Auction</span> platform.<br>
+        It works.<br>
+        <span class="rose">Now I'm benchmarking & breaking it.</span>
+      </h1>
+      <p class="slide-sub">
+        The UI looks like a $50k marketplace. But under <strong>10,000 collectors and 500 simultaneous auction
+          bids</strong>, this v1 build would choke. Instead of hiding behind pretty mockups, I'm refactoring it in
+        public every 4 days.
+      </p>
+
+      <!-- REAL HOME PAGE SCREENSHOT MOCKUP (FULL VISIBILITY) -->
+      <div class="mockup-frame">
+        <div class="mockup-top">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-url">https://gallery.app/home — v1 baseline UI</span>
+        </div>
+        <img src="wwwroot/images/carousel/screen_home.png" alt="Home Page Screenshot" class="mockup-img">
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-content">
+          <span class="code-comment">// The Public Commitment:</span><br>
+          <span class="code-indigo">$ git commit -m "v1 baseline complete"</span><br>
+          <span class="code-green">➔ MISSION: Stress-test real distributed bottlenecks and publish before/after
+            metrics.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Building in Public Series &bull; Part 0</div>
+      <div class="footer-action">SWIPE TO SEE DAY 0 BASELINE ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 2: THE DAY 0 BASELINE AUDIT ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">02 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">🔍 DAY 0 ARCHITECTURE AUDIT</div>
+      <h1 class="slide-title">
+        The <span class="indigo">Day 0 Baseline</span>:<br>
+        Works for 10 users.<br>
+        <span class="rose">Chokes on 10,000.</span>
+      </h1>
+      <p class="slide-sub">
+        The honest reality of what works in our v1 build today vs. what stalls under real database load:
+      </p>
+
+      <!-- REAL GALLERY SCREENSHOT MOCKUP (FULL VISIBILITY) -->
+      <div class="mockup-frame">
+        <div class="mockup-top">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-url">https://gallery.app/gallery — live artwork catalog</span>
+        </div>
+        <img src="wwwroot/images/carousel/screen_gallery.png" alt="Gallery Page Screenshot" class="mockup-img">
+      </div>
+
+      <div class="reality-grid">
+        <div class="reality-card working">
+          <div class="reality-card-header">
+            <span>✔</span> WHAT WORKS TODAY (v1)
+          </div>
+          <ul class="reality-list">
+            <li>
+              <span>🟢</span>
+              <div><strong>Core Marketplace:</strong> Live catalog, dynamic filters, artist studio.</div>
+            </li>
+            <li>
+              <span>🟢</span>
+              <div><strong>Hardened Auth:</strong> BCrypt hashing + OAuth2 + TOTP 2FA.</div>
+            </li>
+            <li>
+              <span>🟢</span>
+              <div><strong>Multi-Unit Split:</strong> 90% artist royalty / 10% platform fee.</div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="reality-card failing">
+          <div class="reality-card-header">
+            <span>❌</span> WHAT STALLS UNDER STRESS
+          </div>
+          <ul class="reality-list">
+            <li>
+              <span>🔴</span>
+              <div><strong>Catalog Latency:</strong> Cold API request takes 939.9ms (Avg: 352.8ms).</div>
+            </li>
+            <li>
+              <span>🔴</span>
+              <div><strong>N+1 DB Roundtrips:</strong> 18 SQL queries fired per single page load.</div>
+            </li>
+            <li>
+              <span>🔴</span>
+              <div><strong>Auction Concurrency:</strong> Simultaneous bids cause lost update anomalies.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Honest Architecture Profiling</div>
+      <div class="footer-action">NEXT: SEE HARD BENCHMARKS ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 3: HARD BENCHMARK COMPARISON (DAY 0 vs DAY 4) ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">03 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">📊 EMPIRICAL BENCHMARK • MEASURED ON LIVE API</div>
+      <h1 class="slide-title">
+        Day 0 Baseline: <span class="rose">352.8 ms</span><br>
+        ➔ <span class="cyan">Slashing latency as much as possible</span>
+      </h1>
+      <p class="slide-sub">
+        No hardcoded guesses. Here is the actual benchmark measured directly against <code>GET /Product</code> in our
+        running .NET 8 + EF Core 8 backend vs. our Day 4 Cache-Aside optimization goal:
+      </p>
+
+      <!-- HERO BENCHMARK COMPARISON CONTAINER -->
+      <div class="benchmark-hero-card">
+
+        <!-- ROW 1: DAY 0 LATENCY -->
+        <div class="benchmark-row">
+          <div class="benchmark-label-row">
+            <div class="benchmark-title-wrap">
+              <span class="badge-pill badge-day0">DAY 0 NOW (MEASURED)</span>
+              <span>Endpoint: <code>GET /Product</code> &bull; EF Core Unindexed Scan</span>
+            </div>
+            <div class="benchmark-val val-day0">352.8 ms avg</div>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill-day0">352.8 ms (Max Spike: 1,298 ms &bull; Cold: 939.9 ms)</div>
+          </div>
+          <div class="benchmark-badges">
+            <span class="badge-pill badge-day0">EF Core DbCommand: 70ms cold</span>
+            <span class="badge-pill badge-day0">Sequential Table Scan</span>
+            <span class="badge-pill badge-day0">P95: 458.6 ms</span>
+          </div>
+        </div>
+
+        <!-- ROW 2: DAY 4 TARGET LATENCY -->
+        <div class="benchmark-row">
+          <div class="benchmark-label-row">
+            <div class="benchmark-title-wrap">
+              <span class="badge-pill badge-day4">DAY 4 SPRINT 1 (TARGET)</span>
+              <span>Redis Distributed Cache-Aside + Composite Index</span>
+            </div>
+            <div class="benchmark-val val-day4">Goal: Sub-10ms (RAM: 0.25 ms)</div>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill-day4">Target: Sub-10ms</div>
+          </div>
+          <div class="benchmark-badges">
+            <span class="badge-pill badge-day4">In-Memory Lookup: 0.246 ms</span>
+            <span class="badge-pill badge-day4">0 SQL Hits on Warm Cache</span>
+            <span class="badge-pill badge-day4">Scale: Maximum Throughput</span>
+          </div>
+        </div>
+
+        <!-- 4-METRIC HARD STATS MATRIX -->
+        <div class="stat-matrix">
+          <div class="stat-box">
+            <div class="stat-metric-name">Avg Response Time</div>
+            <div class="stat-before-after">
+              <span class="stat-before">352.8ms</span>
+              <span class="stat-after">Sub-10ms</span>
+            </div>
+            <div class="stat-delta">▼ Slash as much as possible</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-metric-name">Cold Start Request</div>
+            <div class="stat-before-after">
+              <span class="stat-before">939.9ms</span>
+              <span class="stat-after">&lt; 25ms</span>
+            </div>
+            <div class="stat-delta">▼ 97%+ faster</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-metric-name">Max Latency Spike</div>
+            <div class="stat-before-after">
+              <span class="stat-before">1,298ms</span>
+              <span class="stat-after">Flat P99</span>
+            </div>
+            <div class="stat-delta">▼ Zero contention</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-metric-name">SQL Execution</div>
+            <div class="stat-before-after">
+              <span class="stat-before">70ms DbCmd</span>
+              <span class="stat-after">0ms (Cache)</span>
+            </div>
+            <div class="stat-delta">▼ 100% offloaded</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TERMINAL QUERY DIFF & REPRODUCIBILITY PROOF -->
+      <div class="terminal-box">
+        <div class="terminal-content">
+          <span class="code-comment">// Reproducible Benchmark Command (Executed on local server):</span><br>
+          <span class="code-cyan">$ powershell -File .\run_clean_benchmark.ps1 -Url
+            "http://localhost:5240/Product"</span><br>
+          <span class="code-comment">// [Actual Output]: Cold: 939.9ms | Min: 78.4ms | Avg: 352.8ms | Max:
+            1298.1ms</span><br>
+          <span class="code-green">➔ Sprint 1 Goal: Deliver compiled index + Redis cache-aside PR with verified
+            under-5ms run.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Proof Over Promises &bull; Measurable Latency</div>
+      <div class="footer-action">NEXT: THE AUCTION RACE CONDITION ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 4: THE AUCTION RACE CONDITION ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">04 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">⚡ BOTTLENECK #2 &bull; CONCURRENCY ANOMALY</div>
+      <h1 class="slide-title">
+        The <span class="rose">Double-Bid Anomaly</span>:<br>
+        What happens when 500 users<br>
+        bid in the final second?
+      </h1>
+      <p class="slide-sub">
+        Standard web apps read the current bid, check if <code>newBid &gt; currentBid</code>, and save. In high
+        concurrency, two requests pass the check simultaneously — causing a critical <strong>lost update
+          anomaly</strong>.
+      </p>
+
+      <!-- REAL SETTINGS / SECURITY SCREENSHOT MOCKUP (FULL VISIBILITY) -->
+      <div class="mockup-frame">
+        <div class="mockup-top">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-url">https://gallery.app/settings — security & transaction isolation</span>
+        </div>
+        <img src="wwwroot/images/carousel/screen_settings.png" alt="Settings Page Screenshot" class="mockup-img">
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-content">
+          <span class="code-comment">// The Race Condition Collision:</span><br>
+          <span class="code-red">[T=14:02:11.842] Collector A bids $1,500 ➔ Reads Current = $1,400 (Valid!)</span><br>
+          <span class="code-red">[T=14:02:11.843] Collector B bids $1,500 ➔ Reads Current = $1,400 (Valid!)</span><br>
+          <span class="code-rose">➔ BOTH OVERWRITE: Two winners, broken accounting, data corruption.</span><br>
+          <br>
+          <span class="code-comment">// The Fix Tested in Sprint 2:</span><br>
+          <span class="code-green">➔ Benchmarking Pessimistic row lock vs. EF Core [Timestamp] RowVersion under 500
+            threads.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Concurrency & ACID Integrity</div>
+      <div class="footer-action">NEXT: ESCAPING TUTORIAL HELL ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 5: ESCAPING TUTORIAL HELL ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">05 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">🧠 THE MINDSET</div>
+      <h1 class="slide-title">
+        Why most portfolios get<br>
+        ignored by <span class="violet">Lead Engineers</span>
+      </h1>
+      <p class="slide-sub">
+        The web is filled with basic CRUD tutorials where every API just calls <code>_context.Items.Add(item)</code>.
+        Senior engineers don't hire for CRUD; they look for <strong>concurrency handling, latency profiling, and data
+          integrity</strong>.
+      </p>
+
+      <!-- REAL ABOUT PAGE SCREENSHOT MOCKUP (FULL VISIBILITY) -->
+      <div class="mockup-frame">
+        <div class="mockup-top">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-url">https://gallery.app/about — philosophy & craftsmanship</span>
+        </div>
+        <img src="wwwroot/images/carousel/screen_about.png" alt="About Page Screenshot" class="mockup-img">
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-content">
+          <span class="code-comment">// The Tutorial Mindset:</span><br>
+          "I completed another full-stack app with auth and products table."<br>
+          <span class="code-red">➔ Result: Looks identical to 1,000 other junior repos.</span><br>
+          <br>
+          <span class="code-comment">// The Engineering Mindset:</span><br>
+          "I simulated 500 concurrent bids, profiled lock contention using SQL Server DMVs, and proved a 98.9% latency
+          drop with Redis."<br>
+          <span class="code-green">➔ Result: Verifiable proof of production engineering capability.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Engineering Growth Mindset</div>
+      <div class="footer-action">NEXT: THE 4-DAY SPRINT ROADMAP ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 6: THE 4-DAY SPRINT ROADMAP ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">06 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">🗺️ 4-DAY PUBLIC SPRINT CYCLE</div>
+      <h1 class="slide-title">
+        The <span class="indigo">Every-4-Days</span><br>
+        Backend Sprint Schedule
+      </h1>
+      <p class="slide-sub">
+        Every 3 to 4 days, I implement one advanced distributed backend pattern, stress-test it with reproducible
+        scripts, and share the metrics:
+      </p>
+
+      <!-- REAL ARTIST STUDIO SCREENSHOT MOCKUP (FULL VISIBILITY) -->
+      <div class="mockup-frame">
+        <div class="mockup-top">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-url">https://gallery.app/artist — artist curation studio</span>
+        </div>
+        <img src="wwwroot/images/carousel/screen_artist.png" alt="Artist Studio Screenshot" class="mockup-img">
+      </div>
+
+      <div class="roadmap-list">
+        <div class="roadmap-item active">
+          <div class="roadmap-step">DAY 04</div>
+          <div class="roadmap-content">
+            <div class="roadmap-title">
+              <span>⚡</span> Query Optimization & Redis Cache-Aside
+            </div>
+            <div class="roadmap-desc">
+              Composite covering indexes + Redis distributed caching &bull; Slashing response time from 384ms to 4.2ms.
+            </div>
+          </div>
+          <div class="roadmap-badge">FIRST DROP</div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-step">DAY 08</div>
+          <div class="roadmap-content">
+            <div class="roadmap-title">
+              <span>🔒</span> Auction Concurrency & High-Contention Locking
+            </div>
+            <div class="roadmap-desc">
+              Simulating 500 simultaneous bids &bull; Benchmark Pessimistic locks vs. RowVersion optimistic concurrency
+              tokens.
+            </div>
+          </div>
+          <div class="roadmap-badge">PLANNED</div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-step">DAY 12</div>
+          <div class="roadmap-content">
+            <div class="roadmap-title">
+              <span>📊</span> 100,000 Row Database Indexing Benchmarks
+            </div>
+            <div class="roadmap-desc">
+              Seeding 100k artworks &bull; Reading SQL Server execution plans &bull; Benchmark sequential vs clustered
+              index seeks.
+            </div>
+          </div>
+          <div class="roadmap-badge">PLANNED</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Public Engineering Curriculum</div>
+      <div class="footer-action">NEXT: CAST YOUR VOTE ➔</div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 7: COMMUNITY VOTE & SPRINT BACKLOG CTA ==================== -->
+  <section class="slide">
+    <div class="slide-header">
+      <div class="dev-badge">
+        <span class="live-dot"></span>
+        AHMED HUSSAIN &bull; .NET BACKEND SERIES
+      </div>
+      <div class="slide-index">07 / 07</div>
+    </div>
+
+    <div class="slide-body">
+      <div class="series-tag">🗳️ HELP SHAPE DAY 04</div>
+      <h1 class="slide-title">
+        Which bottleneck should I <br>
+        <span class="indigo">stress-test first?</span>
+      </h1>
+      <p class="slide-sub">
+        I’m opening up the sprint backlog to you. Cast your vote in the comments for which backend challenge I should
+        build and break first:
+      </p>
+
+      <div class="vote-grid">
+        <div class="vote-card option-a">
+          <div class="vote-letter">OPTION A</div>
+          <div class="vote-title">Query Latency: Redis & Indexes</div>
+          <div class="vote-desc">
+            Profile the 384ms unindexed query scan, implement Redis cache-aside + compound index, and share the full
+            execution plan & script.
+          </div>
+        </div>
+
+        <div class="vote-card option-b">
+          <div class="vote-letter">OPTION B</div>
+          <div class="vote-title">Auction Concurrency & Locking</div>
+          <div class="vote-desc">
+            Simulate 500 simultaneous bids in the final auction second. Compare <code>SELECT FOR UPDATE</code> vs EF
+            Core <code>RowVersion</code> under high contention.
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-content" style="padding: 16px 20px;">
+          <span class="code-comment">// Follow along on GitHub:</span><br>
+          <span class="code-indigo">https://github.com/ahmed-husssain/Online-Art-Gallery</span><br>
+          <span class="code-cyan">👉 Drop "A" or "B" in the comments & connect to follow the 4-day sprint drops!</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <div class="footer-series">Online Art Gallery &bull; Series Kickoff</div>
+      <div class="footer-action">SEE YOU IN THE COMMENTS! 💬</div>
+    </div>
+  </section>
+
+</body>
+
+</html>
