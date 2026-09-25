@@ -23,9 +23,10 @@
         </div>
         <div class="mb-3">
             <label asp-for="ArtistId">Artist</label>
-            <select asp-for="ArtistId" class="form-control" asp-items="@(new SelectList(ViewBag.Artists, "UserId", "Name"))">
+            <select asp-for="ArtistId" class="form-control" 
+                    asp-items="@(new SelectList(ViewBag.Artists ?? new List<Project.Models.User>(), "UserId", "Name"))">
                 <option value="">Anonymous</option>
-            </select>
+            </select>                
             <small class="text-muted">Leave blank for Anonymous.</small>
         </div>
         <div class="mb-4">

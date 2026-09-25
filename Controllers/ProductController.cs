@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Project.Models;
 
 namespace Project.Controllers
@@ -7,10 +8,12 @@ namespace Project.Controllers
     public class ProductController : Controller
     {
         private readonly MyContext _context;
+        private readonly IMemoryCache _memoryCache;
 
-        public ProductController(MyContext context)
+        public ProductController(MyContext context, IMemoryCache memoryCache)
         {
             _context = context;
+            _memoryCache = memoryCache;
         }
 
         public IActionResult Index(string searchString, string sortOrder)
@@ -20,7 +23,7 @@ namespace Project.Controllers
             ViewData["CurrentSort"] = sortOrder;
 
             var isAdmin = HttpContext.Session.GetString("Role") == "Admin";
-    var products = _context.products.AsQueryable();
+    var products = _context.products.AsNoTracking().AsQueryable();
 
     if (!isAdmin)
     {
@@ -133,6 +136,13 @@ namespace Project.Controllers
         [HttpPost]
         public async Task<IActionResult> PlaceBid(int productId, decimal amount)
         {
+            var idempotencyKey = Request.Headers["X-Idempotency-Key"].ToString();
+
+            if(!string.IsNullOrEmpty(idempotencyKey)){
+                if(_memoryCache.TryGetValue(idempotencyKey, out object cachedResponse)){
+                    return Json(cachedResponse);
+                }
+            }
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null) return Json(new { success = false, message = "Please login to place a bid." });
 
@@ -167,7 +177,7 @@ namespace Project.Controllers
 
             _context.Bids.Add(bid);
 
-
+        try{
             product.CurrentBid = amount;
             product.BidCount++;
             product.HighestBidderId = user.UserId;
@@ -175,7 +185,20 @@ namespace Project.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, newBid = amount, newCount = product.BidCount });
+            var response = new {success = true, newBid = amount, newCount = product.BidCount };
+            if(!string.IsNullOrEmpty(idempotencyKey)){
+                _memoryCache.Set(idempotencyKey, response, TimeSpan.FromMinutes(2));
+            }
+            return Json(response);
+            }
+            catch(DbUpdateConcurrencyException){
+                return Json(new
+                {
+                    success = false,
+                    message = "Another collector placed a higher bid right before you! Please refresh to see the new price."
+                });
+            }
+            
         }
     }
 }

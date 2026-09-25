@@ -120,5 +120,7 @@ node_modules/
 # Logs, Carousel & Internal Notes
 wwwroot/errorlogs/
 scratch_measure_db.ps1
+scratch_*.ps1
 art_gallery_carousel.html
+code_cards_showcase.html
 LEARNING_RESOURCES.md

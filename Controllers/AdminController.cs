@@ -188,6 +188,7 @@ namespace Project.Controllers
         public IActionResult AddProduct()
         {
             if (HttpContext.Session.GetString("Role") != "Admin") return RedirectToAction("Index", "Home");
+            ViewBag.Artists = _context.users.Where(u => u.Role == "Artist").ToList();
             return View();
         }
 
@@ -233,6 +234,7 @@ namespace Project.Controllers
         public IActionResult EditProduct(Product product, IFormFile image)
         {
             if (HttpContext.Session.GetString("Role") != "Admin") return RedirectToAction("Index", "Home");
+                ViewBag.Artists = _context.users.Where(u => u.Role == "Artist").ToList();
             var existing = _context.products.Find(product.Id);
             if (existing != null)
             {
@@ -242,6 +244,11 @@ namespace Project.Controllers
                 existing.IsAuction = product.IsAuction;
                 existing.AuctionEndTime = product.AuctionEndTime;
                 
+                if(product.Price > (existing.CurrentBid ?? 0)){
+                    existing.CurrentBid = null;
+                    existing.HighestBidderId = null;
+                    existing.BidCount = 0;
+                }
                 if (image != null && image.Length > 0)
                 {
                     var fileName = Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);

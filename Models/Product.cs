@@ -18,7 +18,8 @@ namespace Project.Models
         public DateTime? AuctionEndTime { get; set; }
         public int BidCount { get; set; } = 0;
         public int? HighestBidderId { get; set; }
-
+        [Timestamp]
+        public byte[]?  RowVersion  { get; set; }
 
         public int? ArtistId { get; set; }
         public bool IsApproved { get; set; } = false;
