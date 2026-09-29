@@ -16,7 +16,7 @@ namespace Project.Controllers
             _memoryCache = memoryCache;
         }
 
-        public IActionResult Index(string searchString, string sortOrder)
+        public async Task<IActionResult> Index(string searchString, string sortOrder, int? page)
         {
             ViewData["CurrentFilter"] = searchString;
             ViewData["PriceSortParm"] = sortOrder == "price_asc" ? "price_desc" : "price_asc";
@@ -32,7 +32,7 @@ namespace Project.Controllers
 
             if (!string.IsNullOrEmpty(searchString))
             {
-                products = products.Where(s => s.Name.Contains(searchString) || s.Description.Contains(searchString));
+                products = products.Where(s => EF.Functions.Like(s.Name,  searchString) || EF.Functions.Like(s.Description, "%" + searchString + "%"));
             }
 
             switch (sortOrder)
@@ -54,17 +54,30 @@ namespace Project.Controllers
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId != null)
             {
-                ViewBag.WishlistProductIds = _context.WishlistItems
+                ViewBag.WishlistProductIds = await _context.WishlistItems
                     .Where(w => w.UserId == userId)
                     .Select(w => w.ProductId)
-                    .ToList();
+                    .ToListAsync();
             }
             else
             {
                 ViewBag.WishlistProductIds = new List<int>();
             }
 
-            return View(products.ToList());
+            int pageSize = 12;
+            int pageNumber = page ?? 1;
+
+            var totalItems = await products.CountAsync();
+            ViewBag.CurrentPage = pageNumber;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            ViewBag.TotalItems = totalItems; 
+
+            var pagedProducts = await products
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return View(pagedProducts);
         }
 
         public IActionResult Details(int id)

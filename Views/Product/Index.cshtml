@@ -17,7 +17,7 @@
     
     <div class="max-w-7xl mx-auto flex justify-end my-12 px-6">
         <div class="glass px-8 py-4 rounded-full border border-[var(--glass-border)] text-xs font-black tracking-widest uppercase">
-            <span class="text-primary mr-3">@Model.Count()</span> Artifacts in Collection
+            <span class="text-primary mr-3">@(ViewBag.TotalItems ?? Model.Count())</span> Artifacts in Collection
         </div>
     </div>
 
@@ -117,6 +117,36 @@
                     </div>
                 }
             </div>
+            @if (ViewBag.TotalPages > 1)
+{
+    <div class="flex items-center justify-center gap-4 my-12">
+        @if (ViewBag.CurrentPage > 1)
+        {
+            <a asp-action="Index" 
+               asp-route-page="@(ViewBag.CurrentPage - 1)" 
+               asp-route-searchString="@ViewData["CurrentFilter"]" 
+               asp-route-sortOrder="@ViewData["CurrentSort"]" 
+               class="glass px-6 py-2 rounded-xl text-sm font-semibold hover:border-primary transition-colors">
+                &larr; Previous
+            </a>
+        }
+
+        <span class="text-xs text-muted font-mono tracking-widest uppercase">
+            Page @ViewBag.CurrentPage of @ViewBag.TotalPages
+        </span>
+
+        @if (ViewBag.CurrentPage < ViewBag.TotalPages)
+        {
+            <a asp-action="Index" 
+               asp-route-page="@(ViewBag.CurrentPage + 1)" 
+               asp-route-searchString="@ViewData["CurrentFilter"]" 
+               asp-route-sortOrder="@ViewData["CurrentSort"]" 
+               class="glass px-6 py-2 rounded-xl text-sm font-semibold hover:border-primary transition-colors">
+                Next &rarr;
+            </a>
+        }
+    </div>
+}
         </main>
     </div>
 </div>
