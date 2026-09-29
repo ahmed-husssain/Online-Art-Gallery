@@ -13,6 +13,7 @@ try
     {
         options.Filters.Add<Project.Filters.GlobalViewDataFilter>();
     });
+    builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
     builder.Services.AddDbContext<MyContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("asd")));

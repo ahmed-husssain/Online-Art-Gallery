@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Project.Models;
+using MediatR;
+using Project.Features.Bidding;
 
 namespace Project.Controllers
 {
@@ -9,11 +11,13 @@ namespace Project.Controllers
     {
         private readonly MyContext _context;
         private readonly IMemoryCache _memoryCache;
+        private readonly IMediator _mediator;
 
-        public ProductController(MyContext context, IMemoryCache memoryCache)
+        public ProductController(MyContext context, IMemoryCache memoryCache, IMediator mediator)
         {
             _context = context;
             _memoryCache = memoryCache;
+            _mediator = mediator;
         }
 
         public async Task<IActionResult> Index(string searchString, string sortOrder, int? page)
@@ -149,69 +153,15 @@ namespace Project.Controllers
         [HttpPost]
         public async Task<IActionResult> PlaceBid(int productId, decimal amount)
         {
-            var idempotencyKey = Request.Headers["X-Idempotency-Key"].ToString();
-
-            if(!string.IsNullOrEmpty(idempotencyKey)){
-                if(_memoryCache.TryGetValue(idempotencyKey, out object cachedResponse)){
-                    return Json(cachedResponse);
-                }
-            }
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null) return Json(new { success = false, message = "Please login to place a bid." });
-
-            var user = await _context.users.FindAsync(userId);
-            if (string.IsNullOrEmpty(user?.CardNumber))
-            {
-
-                return Json(new { success = false, message = "NO_CARD", redirectUrl = "/Home/Settings?tab=payment" });
-            }
-
-            var product = await _context.products.FindAsync(productId);
-            if (product == null || !product.IsAuction) return Json(new { success = false, message = "Invalid auction." });
-
-            if (product.AuctionEndTime < DateTime.Now) return Json(new { success = false, message = "Auction has ended." });
-
-            if (product.HighestBidderId == userId)
-            {
-                return Json(new { success = false, message = "You are already the highest bidder." });
-            }
-
-            var minBid = (product.CurrentBid ?? product.Price) + 1;
-            if (amount < minBid) return Json(new { success = false, message = $"Bid must be at least ${minBid}" });
-
-
-            var bid = new Bid
-            {
-                UserId = user.UserId,
-                ProductId = productId,
-                Amount = amount,
-                BidTime = DateTime.Now
-            };
-
-            _context.Bids.Add(bid);
-
-        try{
-            product.CurrentBid = amount;
-            product.BidCount++;
-            product.HighestBidderId = user.UserId;
-            _context.products.Update(product);
-
-            await _context.SaveChangesAsync();
-
-            var response = new {success = true, newBid = amount, newCount = product.BidCount };
-            if(!string.IsNullOrEmpty(idempotencyKey)){
-                _memoryCache.Set(idempotencyKey, response, TimeSpan.FromMinutes(2));
-            }
-            return Json(response);
-            }
-            catch(DbUpdateConcurrencyException){
-                return Json(new
-                {
-                    success = false,
-                    message = "Another collector placed a higher bid right before you! Please refresh to see the new price."
-                });
-            }
-            
+            if (userId == null)
+            return Json(new 
+            { 
+                success = false, message = "Please login to place a bid."
+            });
+            var idempotencyKey = Request.Headers["X-Idempotency-Key"].ToString();
+            var result = await _mediator.Send(new PlaceBidCommand(productId, amount, userId.Value, idempotencyKey));
+            return Json(result); 
         }
     }
 }
