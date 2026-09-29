@@ -50,10 +50,10 @@
             <p class="text-[var(--text-secondary)] text-sm font-bold uppercase tracking-wider mb-1">
                 @(isEnded ? "Final Price" : (Model.CurrentBid != null ? "Current Bid" : "Starting Price"))
             </p>
-            <div class="text-3xl font-black text-[var(--text-primary)]">
+            <div id="currentPriceDisplay" class="text-3xl font-black text-[var(--text-primary)]">
                 $@(Model.CurrentBid ?? Model.Price)
             </div>
-            <p class="text-[var(--text-secondary)] text-xs mt-1">@Model.BidCount Bids placed</p>
+            <p id="bidCountDisplay" class="text-[var(--text-secondary)] text-xs mt-1">@Model.BidCount Bids placed</p>
             
             @if(ViewBag.HighestBidder != null) {
                 var bidder = (Project.Models.User)ViewBag.HighestBidder;
@@ -138,7 +138,7 @@
                                 Place Bid
                             </button>
                         </div>
-                        <p class="text-xs text-[var(--text-secondary)] text-center">Minimum bid: $@minBid</p>
+                        <p id="minBidText" class="text-xs text-[var(--text-secondary)] text-center">Minimum bid: $@minBid</p>
                     </div>
                 }
             }
@@ -258,7 +258,91 @@
             transform: scale(1.1);
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
+        // 1. Establish the WebSocket connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/auctionHub")
+            .withAutomaticReconnect()
+            .build();
+
+        // 2. Listen for "ReceiveNewBid" messages pushed by the server
+        connection.on("ReceiveNewBid", function (data) {
+            if (data.productId === @Model.Id) {
+                const nextMin = Number(data.newBid) + 1;
+
+                // 1. Update price on screen live with flash effect
+                const priceEl = document.getElementById("currentPriceDisplay");
+                if (priceEl) {
+                    priceEl.innerText = "$" + data.newBid;
+                    priceEl.classList.add("text-emerald-400", "scale-110");
+                    setTimeout(() => priceEl.classList.remove("text-emerald-400", "scale-110"), 1000);
+                }
+
+                // 2. Update bid count
+                const countEl = document.getElementById("bidCountDisplay");
+                if (countEl) {
+                    countEl.innerText = data.bidCount + " Bids placed";
+                }
+
+                // 3. Update the input box value, min, and placeholder
+                const bidInput = document.getElementById("bidAmount");
+                if (bidInput) {
+                    bidInput.min = nextMin;
+                    bidInput.value = nextMin; // Updates the actual number in the box
+                    bidInput.placeholder = "Min: $" + nextMin;
+                }
+
+                // 4. Update the minimum bid helper text
+                const minBidText = document.getElementById("minBidText");
+                if (minBidText) {
+                    minBidText.innerText = "Minimum bid: $" + nextMin;
+                }
+
+                // 5. Update Winning / Outbid State for logged-in users
+                const currentUserId = @(Context.Session.GetInt32("UserId")?.ToString() ?? "null");
+                const biddingArea = document.getElementById("biddingArea");
+
+                if (currentUserId !== null && biddingArea) {
+                    if (currentUserId === data.highestBidderId) {
+                        // Current user is the winning bidder: show Winning Bid card
+                        biddingArea.innerHTML = `
+                            <div class="p-4 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-center">
+                                <div class="flex items-center justify-center gap-2 mb-1">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span class="font-bold text-sm uppercase tracking-wider">Winning Bid</span>
+                                </div>
+                                <p class="text-xs">You are currently the highest bidder for this piece.</p>
+                            </div>`;
+                    } else {
+                        // Another user placed a higher bid: show input with outbid alert!
+                        biddingArea.innerHTML = `
+                            <div class="space-y-4">
+                                <div class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl text-xs text-center font-bold">
+                                    ⚠️ You've been outbid! Place a new bid to regain the lead.
+                                </div>
+                                <div class="flex gap-4">
+                                    <div class="relative flex-1">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] font-bold">$</span>
+                                        <input type="number" id="bidAmount" min="${nextMin}" value="${nextMin}" step="1" 
+                                               class="w-full bg-[var(--bg-surface-1)] border border-[var(--glass-border)] rounded-xl pl-8 pr-4 py-4 text-white font-bold outline-none focus:border-primary transition-all" />
+                                    </div>
+                                    <button onclick="placeBid(@Model.Id)" class="btn-premium px-8 py-4 shadow-xl shadow-primary/20 hover:scale-105 transition-transform">
+                                        Place Bid
+                                    </button>
+                                </div>
+                                <p id="minBidText" class="text-xs text-[var(--text-secondary)] text-center">Minimum bid: $${nextMin}</p>
+                            </div>`;
+                    }
+                }
+            }
+        });
+
+        // 3. Start the connection and join the artwork's room
+        connection.start().then(function () {
+            connection.invoke("JoinAuctionGroup", @Model.Id);
+        });
+
         // Ensure rating selection works visually
         document.addEventListener('DOMContentLoaded', function() {
             const ratingInputs = document.querySelectorAll('input[name="rating"]');

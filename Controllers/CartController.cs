@@ -4,6 +4,8 @@ using Project.Models;
 using Project.Services;
 using System.Text.Json;
 using Project.ViewModels;
+using MediatR;
+using Project.Features.Checkout;
 
 namespace Project.Controllers
 {
@@ -12,11 +14,13 @@ namespace Project.Controllers
         private readonly MyContext _context;
         private readonly IEmailService _emailService;
         private const string CartSessionKey = "Cart";
+        private readonly IMediator _mediator;
 
-        public CartController(MyContext context, IEmailService emailService)
+        public CartController(MyContext context, IEmailService emailService, IMediator mediator)
         {
             _context = context;
             _emailService = emailService;
+            _mediator = mediator;
         }
 
         public IActionResult Index()
@@ -157,76 +161,43 @@ namespace Project.Controllers
         public async Task<IActionResult> ProcessCheckout(CartViewModel model)
         {
             var cart = GetCart();
-            if (cart.Count == 0) return RedirectToAction("Index");
-
-            if (!ModelState.IsValid)
-            {
+            if(cart.Count == 0){
+                return RedirectToAction("Index");
+            }
+            if(!ModelState.IsValid){
                 model.CartItems = cart;
                 return View("Checkout", model);
             }
-
             var userId = HttpContext.Session.GetInt32("UserId");
-            if (userId == null) return RedirectToAction("Login", "Auth");
-
-
-            var order = new Order
-            {
-                UserId = userId.Value,
-                OrderDate = DateTime.Now,
-                TotalAmount = cart.Sum(x => x.Total),
-                CustomerName = model.FullName,
-                ShippingAddress = $"{model.Address}, {model.City}, {model.ZipCode}",
-                Status = "Pending",
-                IsPaid = true
-            };
-
-            foreach (var item in cart)
-            {
-                var platformFee = (item.Price * 0.10m) * item.Quantity;
-                var artistEarnings = (item.Price - (item.Price * 0.10m)) * item.Quantity;
-
-                order.OrderItems.Add(new OrderItem
-                {
-                    ProductId = item.ProductId,
-                    ProductName = item.Name,
-                    Price = item.Price,
-                    Quantity = item.Quantity,
-                    ImageUrl = item.ImageUrl,
-                    PlatformFee = platformFee,
-                    ArtistEarnings = artistEarnings
-                });
-            }
-
-            _context.Orders.Add(order);
-            _context.SaveChanges();
-
-
-            var confirmLink = Url.Action(
-                "OrderConfirmed",
-                "Cart",
-                new { id = order.Id },
-                Request.Scheme);
-
-            var userEmail = HttpContext.Session.GetString("Email");
+            if(userId == null)
+            return RedirectToAction("Login", "Auth");
             
+            var userEmail = HttpContext.Session.GetString("Email");
+            var confirmLinkPattern = Url.Action("OrderConfirmed", "Cart", new { id = "__ID__" }, Request.Scheme)!;
+
+            var command = new ProcessCheckoutCommand(
+                userId.Value,
+                userEmail,
+                model.FullName,
+                model.Address,
+                model.City,
+                model.ZipCode,
+                cart,
+                confirmLinkPattern
+            );
+            var result = await _mediator.Send(command);
+            if (!result.Success)
+            {
+                ModelState.AddModelError("", result.Message ?? "Failed to process checkout.");
+                model.CartItems = cart;
+                return View("Checkout", model);
+            }
             if (!string.IsNullOrEmpty(userEmail))
             {
-                string subject = "Confirm your Art Gallery Order";
-                string body = $@"
-                    <div style='font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border: 1px solid #eee; border-radius: 20px; text-align: center; background-color: #05060a; color: white;'>
-                        <h1 style='color: #3b82f6;'>ART GALLERY</h1>
-                        <h2 style='margin-bottom: 20px;'>Thank you for your order, {model.FullName}!</h2>
-                        <p style='color: #94a3b8; font-size: 16px; margin-bottom: 30px;'>Your selection of masterpieces is ready for shipment. Please confirm your order to finalize the delivery process.</p>
-                        <a href='{confirmLink}' style='display: inline-block; background: #3b82f6; color: white; padding: 16px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 18px; box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);'>Confirm Order</a>
-                        <p style='margin-top: 40px; font-size: 12px; color: #475569;'>© {DateTime.Now.Year} Art Gallery. Modern Art for Modern Collectors.</p>
-                    </div>";
-
-                await _emailService.SendEmailAsync(userEmail, subject, body);
                 TempData["Success"] = "Order placed! Please check your email to confirm your purchase.";
             }
-
             HttpContext.Session.Remove(CartSessionKey);
-            return RedirectToAction("OrderConfirmed", new { id = order.Id });
+            return RedirectToAction("OrderConfirmed", new { id = result.OrderId });
         }
 
         public IActionResult OrderConfirmed(int id)

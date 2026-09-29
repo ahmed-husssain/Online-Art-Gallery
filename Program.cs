@@ -2,6 +2,7 @@ using Project.Models;
 using Project.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Project.Hubs;     
 using System.IO;
 
 try
@@ -19,6 +20,7 @@ try
         options.UseSqlServer(builder.Configuration.GetConnectionString("asd")));
 
     builder.Services.AddSession();
+    builder.Services.AddSignalR();
     builder.Services.AddMemoryCache();
 
     DotNetEnv.Env.Load();
@@ -77,6 +79,7 @@ try
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}");
 
+        app.MapHub<AuctionHub>("/auctionHub");
     app.Run();
 }
 catch (Exception ex)

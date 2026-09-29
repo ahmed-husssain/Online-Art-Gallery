@@ -1,7 +1,9 @@
 using MediatR;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Project.Models;
+using Project.Hubs;
 
 namespace Project.Features.Bidding
 {
@@ -9,11 +11,13 @@ namespace Project.Features.Bidding
     {
         private readonly MyContext _context;
         private readonly IMemoryCache _memoryCache;
+        private readonly IHubContext<AuctionHub> _hubContext;
 
-        public PlaceBidCommandHandler(MyContext context, IMemoryCache memoryCache)
+        public PlaceBidCommandHandler(MyContext context, IMemoryCache memoryCache, IHubContext<AuctionHub> hubContext)
         {
             _context = context;
             _memoryCache = memoryCache;
+            _hubContext = hubContext;
         }
 
         public async Task<BidResult> Handle(PlaceBidCommand request, CancellationToken cancellationToken)
@@ -69,8 +73,16 @@ namespace Project.Features.Bidding
 
                 await _context.SaveChangesAsync(cancellationToken);
 
-                var response = new BidResult(true, NewBid: request.Amount, NewCount: product.BidCount);
+                await _hubContext.Clients.Group($"auction-{request.ProductId}").SendAsync("ReceiveNewBid", new
+                {
+                    productId = request.ProductId,
+                    newBid = request.Amount,
+                    bidCount = product.BidCount,
+                    bidderName = user!.Name,
+                    highestBidderId = request.UserId
+                }, CancellationToken.None);
 
+                var response = new BidResult(true, NewBid: request.Amount, NewCount: product.BidCount);
                 // Cache for idempotency (2 minutes)
                 if (!string.IsNullOrEmpty(request.IdempotencyKey))
                 {
